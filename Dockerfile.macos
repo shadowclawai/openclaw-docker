@@ -40,7 +40,8 @@ RUN echo '#!/bin/bash\n\
 set -e\n\
 # Ensure .openclaw directory structure exists with correct ownership\n\
 mkdir -p /home/node/.openclaw/{credentials,sessions,logs,workspace,media}\n\
-chown -R node:node /home/node\n\
+# Fix ownership (suppress errors for read-only git pack files)\n\
+chown -R node:node /home/node 2>/dev/null || true\n\
 # Run command as node user\n\
 exec gosu node "$@"\n\
 ' > /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
