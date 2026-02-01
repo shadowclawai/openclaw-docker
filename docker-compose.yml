@@ -1,0 +1,53 @@
+# OpenClaw Docker Compose for macOS
+# Uses custom entrypoint to fix permission issues
+
+services:
+  openclaw-gateway:
+    build:
+      context: ${OPENCLAW_SOURCE_DIR:-../workspace/openclaw-source}
+      dockerfile: ${HOME}/.openclaw/docker/Dockerfile.macos
+    image: openclaw:macos
+    container_name: openclaw-gateway
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      # Mount entire .openclaw directory
+      - ${HOME}/.openclaw:/home/node/.openclaw:cached
+    ports:
+      # Dashboard/WebSocket
+      - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+      # Bridge (for providers)
+      - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
+    init: true
+    restart: unless-stopped
+    command:
+      [
+        "node",
+        "dist/index.js",
+        "gateway",
+        "run",
+        "--bind",
+        "lan",
+        "--port",
+        "18789",
+      ]
+
+  openclaw-cli:
+    image: openclaw:macos
+    container_name: openclaw-cli
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      BROWSER: echo
+    volumes:
+      - ${HOME}/.openclaw:/home/node/.openclaw:cached
+    stdin_open: true
+    tty: true
+    init: true
+    profiles:
+      - cli
+    entrypoint: ["node", "dist/index.js"]

@@ -1,0 +1,49 @@
+# OpenClaw macOS-compatible Dockerfile
+# Adds gosu for proper user switching and init script
+
+FROM node:22-bookworm
+
+# Install Bun + gosu for user switching
+RUN curl -fsSL https://bun.sh/install | bash && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends gosu && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+ENV PATH="/root/.bun/bin:${PATH}"
+
+RUN corepack enable
+
+WORKDIR /app
+
+ARG OPENCLAW_DOCKER_APT_PACKAGES=""
+RUN if [ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then \
+      apt-get update && \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $OPENCLAW_DOCKER_APT_PACKAGES && \
+      apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY ui/package.json ./ui/package.json
+COPY patches ./patches
+COPY scripts ./scripts
+
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+RUN OPENCLAW_A2UI_SKIP_MISSING=1 pnpm build
+ENV OPENCLAW_PREFER_PNPM=1
+RUN pnpm ui:build
+
+ENV NODE_ENV=production
+
+# Create init script that fixes permissions
+RUN echo '#!/bin/bash\n\
+set -e\n\
+# Ensure .openclaw directory structure exists with correct ownership\n\
+mkdir -p /home/node/.openclaw/{credentials,sessions,logs,workspace,media}\n\
+chown -R node:node /home/node\n\
+# Run command as node user\n\
+exec gosu node "$@"\n\
+' > /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["node", "dist/index.js"]

@@ -1,0 +1,60 @@
+# OpenClaw Docker Compose for macOS
+# Fixes permission issues with named volumes
+
+services:
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      # Add API keys in .env file
+    volumes:
+      # Named volume for /home/node (fixes UID mismatch)
+      - openclaw-home:/home/node
+      # Config and workspace mounted inside
+      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}/config.yaml:/home/node/.openclaw/config.yaml:ro
+      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}/credentials:/home/node/.openclaw/credentials:cached
+      - ${OPENCLAW_WORKSPACE_DIR:-~/.openclaw/workspace}:/home/node/.openclaw/workspace:cached
+      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}/sessions:/home/node/.openclaw/sessions:cached
+      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}/logs:/home/node/.openclaw/logs:cached
+    ports:
+      - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+      - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
+    init: true
+    restart: unless-stopped
+    # Run as node user (uid 1000)
+    user: "node"
+    command:
+      [
+        "node",
+        "dist/index.js",
+        "gateway",
+        "--bind",
+        "${OPENCLAW_GATEWAY_BIND:-lan}",
+        "--port",
+        "18789",
+      ]
+
+  openclaw-cli:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      BROWSER: echo
+    volumes:
+      - openclaw-home:/home/node
+      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}/config.yaml:/home/node/.openclaw/config.yaml:ro
+      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}/credentials:/home/node/.openclaw/credentials:cached
+      - ${OPENCLAW_WORKSPACE_DIR:-~/.openclaw/workspace}:/home/node/.openclaw/workspace:cached
+      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}/sessions:/home/node/.openclaw/sessions:cached
+      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}/logs:/home/node/.openclaw/logs:cached
+    stdin_open: true
+    tty: true
+    init: true
+    user: "node"
+    entrypoint: ["node", "dist/index.js"]
+
+volumes:
+  openclaw-home:
+    # Named volume for node home - avoids permission issues
