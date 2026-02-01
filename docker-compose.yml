@@ -7,7 +7,7 @@ services:
       context: ${OPENCLAW_SOURCE_DIR:-../workspace/openclaw-source}
       dockerfile: ${HOME}/.openclaw/docker/Dockerfile.macos
     image: openclaw:macos
-    container_name: openclaw-gateway
+    container_name: openclaw
     environment:
       HOME: /home/node
       TERM: xterm-256color
