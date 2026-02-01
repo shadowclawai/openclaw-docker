@@ -35,13 +35,25 @@ RUN pnpm ui:build
 
 ENV NODE_ENV=production
 
-# Create init script that fixes permissions
+# Create init script that fixes permissions and path compatibility
 RUN echo '#!/bin/bash\n\
 set -e\n\
+# Create symlink for macOS path compatibility\n\
+# Config may have /Users/USERNAME paths that need to resolve inside container\n\
+if [ -n "$OPENCLAW_HOST_USER" ]; then\n\
+  mkdir -p /Users\n\
+  ln -sfn /home/node "/Users/$OPENCLAW_HOST_USER" 2>/dev/null || true\n\
+fi\n\
 # Ensure .openclaw directory structure exists with correct ownership\n\
-mkdir -p /home/node/.openclaw/{credentials,sessions,logs,workspace,media}\n\
-# Fix ownership (suppress errors for read-only git pack files)\n\
-chown -R node:node /home/node 2>/dev/null || true\n\
+mkdir -p /home/node/.openclaw/{credentials,sessions,logs,workspace,media,canvas,cron}\n\
+# Fix ownership on key dirs only (skip .git to avoid hanging on pack files)\n\
+for dir in /home/node/.openclaw/credentials /home/node/.openclaw/sessions \\\n\
+           /home/node/.openclaw/logs /home/node/.openclaw/media \\\n\
+           /home/node/.openclaw/canvas /home/node/.openclaw/cron; do\n\
+  [ -d "$dir" ] && chown -R node:node "$dir" 2>/dev/null || true\n\
+done\n\
+# Just chown the workspace root, not recursively (skip git objects)\n\
+chown node:node /home/node/.openclaw /home/node/.openclaw/workspace 2>/dev/null || true\n\
 # Run command as node user\n\
 exec gosu node "$@"\n\
 ' > /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh

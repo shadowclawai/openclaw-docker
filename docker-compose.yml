@@ -14,6 +14,8 @@ services:
       HOME: /home/node
       TERM: xterm-256color
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      OPENCLAW_GATEWAY_BIND: lan
+      OPENCLAW_HOST_USER: ${USER}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
@@ -26,6 +28,17 @@ services:
       - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
     init: true
     restart: unless-stopped
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN      # needed for entrypoint
+      - SETUID     # needed for gosu
+      - SETGID     # needed for gosu
+    tmpfs:
+      - /tmp:mode=1777,size=100m
     command:
       [
         "node",
